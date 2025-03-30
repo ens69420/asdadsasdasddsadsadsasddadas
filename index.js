@@ -1,4 +1,36 @@
-r-radius: 50%; margin-right: 15px; }
+const { Client, GatewayIntentBits } = require('discord.js');
+const express = require('express');
+const app = express();
+const port = 3000;
+
+// Configurar cliente do Discord com todas as intents necessárias
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMembers
+  ]
+});
+
+// Variáveis globais para armazenar as informações do usuário
+let userStatus = 'offline';
+let userAvatar = null;
+let userTag = null;
+const USER_ID = '874517110678765618'; // ID do usuário que você quer monitorar
+
+// ===== SISTEMA KEEP-ALIVE PARA REPLIT =====
+// Rota principal para o dashboard
+app.get('/', (req, res) => {
+  // Exibir o dashboard ao invés de apenas "Bot está ativo!"
+  res.send(`
+    <html>
+      <head>
+        <title>Discord Status Monitor</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+          .status { padding: 10px; border: 1px solid #ccc; margin: 20px 0; }
+          .user-info { display: flex; align-items: center; }
+          .avatar { width: 80px; height: 80px; border-radius: 50%; margin-right: 15px; }
           .status-indicator { width: 20px; height: 20px; border-radius: 50%; display: inline-block; margin-right: 10px; }
           .online { background-color: #43b581; }
           .idle { background-color: #faa61a; }
