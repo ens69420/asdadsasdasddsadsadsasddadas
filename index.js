@@ -18,7 +18,6 @@ let userAvatar = null;
 let userTag = null;
 const USER_ID = '874517110678765618'; // ID do usuário que você quer monitorar
 
-// ===== SISTEMA KEEP-ALIVE PARA REPLIT =====
 // Rota principal para o dashboard
 app.get('/', (req, res) => {
   // Exibir o dashboard ao invés de apenas "Bot está ativo!"
@@ -65,7 +64,7 @@ app.get('/', (req, res) => {
         </div>
         <div class="ping-info">
           <h3>Sistema Keep-Alive</h3>
-          <p>Bot está ativo! Sistema de ping está rodando a cada 20 segundos.</p>
+          <p>Bot está ativo! Sistema de ping está rodando a cada 5 minutos.</p>
           <p>Último ping: <span id="lastPing">${new Date().toISOString()}</span></p>
         </div>
         <script>
@@ -106,21 +105,27 @@ app.get('/monitor', (req, res) => {
   console.log(`[${timestamp}] Verificação do UptimeRobot recebida`);
 });
 
-// Ajuste esta parte do seu código para usar a URL correta do Replit
-setInterval(() => {
-  console.log(`[${new Date().toISOString()}] PING INTERNO: Mantendo o serviço ativo`);
-
-  // Use a URL do seu Replit específica aqui
-  const replitUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/ping`;
-
-  try {
-    fetch(replitUrl)
-      .then(response => console.log(`[${new Date().toISOString()}] Auto-ping bem-sucedido`))
-      .catch(err => console.log(`[${new Date().toISOString()}] Erro no auto-ping, mas continuando...`));
-  } catch (error) {
-    // Ignorar erros
-  }
-}, 10000); // Reduzido para cada 10 segundos
+// ===== NOVA ROTA ESPECÍFICA PARA UPTIMEROBOT =====
+app.get('/uptimerobot', (req, res) => {
+  const timestamp = new Date().toISOString();
+  
+  // Informações extras sobre o estado do bot
+  const botInfo = {
+    botOnline: client.user ? true : false,
+    uptime: client.uptime ? Math.floor(client.uptime / 1000) + ' segundos' : 'N/A',
+    monitoredUser: {
+      id: USER_ID,
+      status: userStatus,
+      tag: userTag || 'Não disponível'
+    },
+    serverTime: timestamp
+  };
+  
+  // Responder com status 200 e informações
+  res.status(200).json(botInfo);
+  
+  console.log(`[${timestamp}] Verificação do UptimeRobot recebida na rota específica`);
+});
 
 // Rota específica para pings, que é frequentemente acessada
 app.get('/ping', (req, res) => {
@@ -214,33 +219,33 @@ function startBot() {
   });
 }
 
-// ===== SISTEMA DE PING INTERNO MUITO MAIS FREQUENTE =====
-// Ping a cada 20 segundos em vez de 1 minuto
-setInterval(() => {
-  console.log(`[${new Date().toISOString()}] PING INTERNO: Mantendo o serviço ativo`);
-
-  // Se o URL do Replit estiver disponível, faça um auto-ping
-  const replitUrl = process.env.REPL_SLUG ? 
-    `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/ping` : 
-    null;
-
-  if (replitUrl) {
-    try {
-      fetch(replitUrl).catch(err => {
-        // Ignorar erros de fetch - o importante é manter a VM ativa
-        console.log(`[${new Date().toISOString()}] Auto-ping realizado para ${replitUrl}`);
-      });
-    } catch (error) {
-      // Ignorar qualquer erro
-    }
+// ===== SISTEMA KEEP-ALIVE PARA RENDER =====
+// Função para realizar ping no próprio serviço
+function pingService() {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] PING INTERNO: Mantendo o serviço ativo`);
+  
+  // Obtém a URL do serviço a partir das variáveis de ambiente do Render
+  // ou usa localhost em ambiente de desenvolvimento
+  const serviceUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}/ping`;
+  
+  try {
+    fetch(serviceUrl)
+      .then(response => console.log(`[${timestamp}] Auto-ping bem-sucedido`))
+      .catch(err => console.log(`[${timestamp}] Erro no auto-ping: ${err.message}`));
+  } catch (error) {
+    console.log(`[${timestamp}] Exceção no auto-ping: ${error.message}`);
   }
-}, 20000); // A cada 20 segundos (muito mais frequente)
+}
 
-// Ping adicional extremamente frequente (a cada 5 segundos)
-// para situações de alta garantia de uptime
+// Ping a cada 5 minutos para evitar inatividade no Render
+// O Render tem um limite de inatividade de 15 minutos para o plano gratuito
+setInterval(pingService, 5 * 60 * 1000);
+
+// Ping adicional mais frequente para estabilidade (a cada 30 segundos)
 setInterval(() => {
   console.log(`[${new Date().toISOString()}] Micro-ping interno para garantir atividade`);
-}, 5000);
+}, 30 * 1000);
 
 // ===== ROTAS ADICIONAIS PARA A API =====
 // Criar endpoint para obter o status atual do usuário
@@ -277,8 +282,3 @@ process.on('uncaughtException', function(err) {
   console.error(`[${new Date().toISOString()}] ERRO NÃO TRATADO: `, err);
   console.log('O bot continuará funcionando apesar do erro.');
 });
-
-// Pinging UptimeRobot como uma camada adicional de keep-alive
-setInterval(() => {
-  console.log(`[${new Date().toISOString()}] Tentando ping externo como camada adicional de segurança`);
-}, 30000);
