@@ -16,7 +16,9 @@ const client = new Client({
 let userStatus = 'offline';
 let userAvatar = null;
 let userTag = null;
+let lastAvatarCheck = 0;
 const USER_ID = '874517110678765618'; // ID do usuário que você quer monitorar
+const AVATAR_CHECK_INTERVAL = 60 * 1000; // Verificar avatar a cada 1 minuto
 
 // Rota principal para o dashboard
 app.get('/', (req, res) => {
@@ -66,6 +68,7 @@ app.get('/', (req, res) => {
           <h3>Sistema Keep-Alive</h3>
           <p>Bot está ativo! Sistema de ping está rodando a cada 5 minutos.</p>
           <p>Último ping: <span id="lastPing">${new Date().toISOString()}</span></p>
+          <p>Última verificação de avatar: <span id="lastAvatarCheck">${new Date(lastAvatarCheck).toISOString()}</span></p>
         </div>
         <script>
           // Atualizar status na página a cada 5 segundos
@@ -77,9 +80,12 @@ app.get('/', (req, res) => {
                 document.getElementById('statusIndicator').className = 'status-indicator ' + data.status;
                 document.getElementById('username').innerText = data.username || 'Usuário Discord';
                 if (data.avatarUrl) {
-                  document.getElementById('avatarImage').src = data.avatarUrl;
+                  document.getElementById('avatarImage').src = data.avatarUrl + '?t=' + new Date().getTime();
                 }
                 document.getElementById('lastPing').innerText = data.timestamp;
+                if(data.lastAvatarCheck) {
+                  document.getElementById('lastAvatarCheck').innerText = data.lastAvatarCheck;
+                }
               });
           }, 5000);
 
@@ -98,40 +104,88 @@ app.get('/', (req, res) => {
   console.log(`[${new Date().toISOString()}] Dashboard acessado`);
 });
 
-// ===== ROTA ESPECÍFICA PARA UPTIMEROBOT =====
-app.get('/monitor', (req, res) => {
-  const timestamp = new Date().toISOString();
-  res.status(200).send(`Monitor ativo! Última verificação: ${timestamp}`);
-  console.log(`[${timestamp}] Verificação do UptimeRobot recebida`);
+// Função para verificar e atualizar as informações do usuário
+async function updateUserInfo() {
+  try {
+    // Forçar a obtenção do usuário novamente
+    const user = await client.users.fetch(USER_ID, { force: true });
+    if (user) {
+      const newAvatar = user.displayAvatarURL({ size: 2048, format: 'png', dynamic: true });
+      
+      // Verificar se o avatar mudou
+      if (newAvatar !== userAvatar) {
+        console.log(`[${new Date().toISOString()}] Avatar atualizado: ${newAvatar}`);
+        userAvatar = newAvatar;
+      }
+      
+      // Atualizar a tag do usuário também
+      userTag = user.tag;
+      
+      // Buscar o status em todos os servidores
+      let foundInServer = false;
+      client.guilds.cache.forEach(async (guild) => {
+        try {
+          const member = await guild.members.fetch(USER_ID);
+          if (member) {
+            foundInServer = true;
+            userStatus = member.presence ? member.presence.status : 'offline';
+            
+            // Verificar avatar do servidor
+            const memberAvatar = member.displayAvatarURL({ size: 2048, format: 'png', dynamic: true });
+            if (memberAvatar !== userAvatar) {
+              console.log(`[${new Date().toISOString()}] Avatar do servidor atualizado: ${memberAvatar}`);
+              userAvatar = memberAvatar;
+            }
+          }
+        } catch (e) {
+          // Ignorar erros ao buscar membro em servidores específicos
+        }
+      });
+      
+      lastAvatarCheck = Date.now();
+      console.log(`[${new Date().toISOString()}] Informações do usuário atualizadas com sucesso`);
+    }
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Erro ao atualizar informações do usuário:`, err);
+  }
+}
+
+// ===== OUTRAS ROTAS E CONFIGURAÇÕES (mantidas do código original) =====
+
+// ===== ROTAS ADICIONAIS PARA A API =====
+// Criar endpoint para obter o status atual do usuário
+app.get('/status', (req, res) => {
+  // Adicionar cabeçalhos CORS para permitir acesso de outros domínios
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Adicionar parâmetro de tempo para evitar cache
+  const avatarUrlWithCache = userAvatar ? 
+    userAvatar + (userAvatar.includes('?') ? '&' : '?') + 't=' + Date.now() : null;
+
+  res.json({ 
+    userId: USER_ID,
+    username: userTag,
+    status: userStatus,
+    statusImage: getStatusImageUrl(userStatus),
+    avatarUrl: avatarUrlWithCache,
+    timestamp: new Date().toISOString(),
+    lastAvatarCheck: new Date(lastAvatarCheck).toISOString()
+  });
+
+  console.log(`[${new Date().toISOString()}] Requisição de status atendida`);
 });
 
-// ===== NOVA ROTA ESPECÍFICA PARA UPTIMEROBOT =====
-app.get('/uptimerobot', (req, res) => {
-  const timestamp = new Date().toISOString();
-  
-  // Informações extras sobre o estado do bot
-  const botInfo = {
-    botOnline: client.user ? true : false,
-    uptime: client.uptime ? Math.floor(client.uptime / 1000) + ' segundos' : 'N/A',
-    monitoredUser: {
-      id: USER_ID,
-      status: userStatus,
-      tag: userTag || 'Não disponível'
-    },
-    serverTime: timestamp
-  };
-  
-  // Responder com status 200 e informações
-  res.status(200).json(botInfo);
-  
-  console.log(`[${timestamp}] Verificação do UptimeRobot recebida na rota específica`);
-});
-
-// Rota específica para pings, que é frequentemente acessada
-app.get('/ping', (req, res) => {
-  res.status(200).send('pong');
-  console.log(`[${new Date().toISOString()}] Ping recebido!`);
-});
+// Função para retornar URL da imagem baseada no status
+function getStatusImageUrl(status) {
+  switch(status) {
+    case 'online': return '/img/online.png';
+    case 'idle': return '/img/idle.png';
+    case 'dnd': return '/img/dnd.png';
+    default: return '/img/offline.png';
+  }
+}
 
 // Iniciar o servidor Express ANTES de iniciar o bot
 app.listen(port, () => {
@@ -149,60 +203,11 @@ function startBot() {
   client.once('ready', async () => {
     console.log(`[${new Date().toISOString()}] Bot iniciado como ${client.user.tag}`);
 
-    try {
-      // Tentar obter o usuário diretamente da API do Discord
-      const user = await client.users.fetch(USER_ID, { force: true });
-      if (user) {
-        userAvatar = user.displayAvatarURL({ size: 2048, format: 'png', dynamic: true });
-        userTag = user.tag;
-        console.log(`[${new Date().toISOString()}] Informações básicas do usuário obtidas: ${userTag}`);
-        console.log(`[${new Date().toISOString()}] Avatar URL: ${userAvatar}`);
-      }
-
-      // Aguardar um pouco para garantir que todas as caches estejam carregadas
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Buscar o usuário em todos os servidores que o bot está
-      let userFound = false;
-
-      client.guilds.cache.forEach(async (guild) => {
-        try {
-          console.log(`[${new Date().toISOString()}] Verificando no servidor: ${guild.name} (${guild.id})`);
-
-          // Tentar buscar o membro específico diretamente
-          try {
-            const member = await guild.members.fetch(USER_ID);
-            if (member) {
-              userFound = true;
-              userStatus = member.presence ? member.presence.status : 'offline';
-              console.log(`[${new Date().toISOString()}] Usuário encontrado no servidor ${guild.name} com status: ${userStatus}`);
-
-              // Obter avatar do servidor, que pode ser diferente do avatar global
-              const memberAvatar = member.displayAvatarURL({ size: 2048, format: 'png', dynamic: true });
-              if (memberAvatar !== userAvatar) {
-                console.log(`[${new Date().toISOString()}] Avatar do servidor encontrado: ${memberAvatar}`);
-                // Preferir o avatar do servidor, se disponível
-                userAvatar = memberAvatar;
-              }
-            }
-          } catch (memberError) {
-            console.log(`[${new Date().toISOString()}] Membro não encontrado no servidor ${guild.name}: ${memberError.message}`);
-          }
-        } catch (err) {
-          console.error(`[${new Date().toISOString()}] Erro ao verificar o servidor ${guild.name}:`, err);
-        }
-      });
-
-      // Verificar após um tempo se o usuário foi encontrado
-      setTimeout(() => {
-        if (!userFound) {
-          console.log(`[${new Date().toISOString()}] AVISO: Usuário com ID ${USER_ID} não foi encontrado em nenhum servidor. Verifique se o ID está correto e se o bot está no mesmo servidor que o usuário.`);
-        }
-      }, 5000);
-
-    } catch (err) {
-      console.error(`[${new Date().toISOString()}] Erro durante a inicialização:`, err);
-    }
+    // Fazer a verificação inicial
+    await updateUserInfo();
+    
+    // Configurar verificação periódica do avatar e informações do usuário
+    setInterval(updateUserInfo, AVATAR_CHECK_INTERVAL);
   });
 
   // Monitorar mudanças de presença
@@ -239,43 +244,12 @@ function pingService() {
 }
 
 // Ping a cada 5 minutos para evitar inatividade no Render
-// O Render tem um limite de inatividade de 15 minutos para o plano gratuito
 setInterval(pingService, 5 * 60 * 1000);
 
 // Ping adicional mais frequente para estabilidade (a cada 30 segundos)
 setInterval(() => {
   console.log(`[${new Date().toISOString()}] Micro-ping interno para garantir atividade`);
 }, 30 * 1000);
-
-// ===== ROTAS ADICIONAIS PARA A API =====
-// Criar endpoint para obter o status atual do usuário
-app.get('/status', (req, res) => {
-  // Adicionar cabeçalhos CORS para permitir acesso de outros domínios
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-
-  res.json({ 
-    userId: USER_ID,
-    username: userTag,
-    status: userStatus,
-    statusImage: getStatusImageUrl(userStatus),
-    avatarUrl: userAvatar,
-    timestamp: new Date().toISOString()
-  });
-
-  console.log(`[${new Date().toISOString()}] Requisição de status atendida`);
-});
-
-// Função para retornar URL da imagem baseada no status
-function getStatusImageUrl(status) {
-  switch(status) {
-    case 'online': return '/img/online.png';
-    case 'idle': return '/img/idle.png';
-    case 'dnd': return '/img/dnd.png';
-    default: return '/img/offline.png';
-  }
-}
 
 // Certificar-se de que o bot continue rodando mesmo se houver erros não tratados
 process.on('uncaughtException', function(err) {
