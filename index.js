@@ -195,6 +195,16 @@ app.listen(port, () => {
   startBot();
 });
 
+const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
+// ... resto do código ...
+
+client.once('ready', () => {
+  console.log(`Bot está online como ${client.user.tag}!`);
+  
+  client.user.setStatus('dnd');
+  client.user.setActivity('só fazendo o meu trabalho...', { type: ActivityType.Watching });
+});
+
 // Função separada para iniciar o bot
 function startBot() {
   console.log(`[${new Date().toISOString()}] Iniciando o bot Discord...`);
