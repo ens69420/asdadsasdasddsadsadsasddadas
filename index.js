@@ -203,6 +203,13 @@ function startBot() {
   client.once('ready', async () => {
     console.log(`[${new Date().toISOString()}] Bot iniciado como ${client.user.tag}`);
 
+    // Definir status do bot (online, idle, dnd, invisible)
+    client.user.setStatus('idle'); // Você pode mudar para 'idle', 'dnd', ou 'invisible'
+    
+    // Definir atividade do bot (opcional)
+    client.user.setActivity('só fazendo o meu papel...', { type: 'WATCHING' });
+    // Outros tipos: 'PLAYING', 'STREAMING', 'LISTENING', 'COMPETING'
+    
     // Fazer a verificação inicial
     await updateUserInfo();
     
