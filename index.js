@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const express = require('express');
 const app = express();
 const port = 3000;
@@ -150,9 +150,6 @@ async function updateUserInfo() {
   }
 }
 
-// ===== OUTRAS ROTAS E CONFIGURAÇÕES (mantidas do código original) =====
-
-// ===== ROTAS ADICIONAIS PARA A API =====
 // Criar endpoint para obter o status atual do usuário
 app.get('/status', (req, res) => {
   // Adicionar cabeçalhos CORS para permitir acesso de outros domínios
@@ -195,16 +192,6 @@ app.listen(port, () => {
   startBot();
 });
 
-const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
-// ... resto do código ...
-
-client.once('ready', () => {
-  console.log(`Bot está online como ${client.user.tag}!`);
-  
-  client.user.setStatus('dnd');
-  client.user.setActivity('só fazendo o meu trabalho...', { type: ActivityType.Watching });
-});
-
 // Função separada para iniciar o bot
 function startBot() {
   console.log(`[${new Date().toISOString()}] Iniciando o bot Discord...`);
@@ -212,7 +199,10 @@ function startBot() {
   // Evento quando o bot estiver pronto
   client.once('ready', async () => {
     console.log(`[${new Date().toISOString()}] Bot iniciado como ${client.user.tag}`);
-
+    
+    client.user.setStatus('dnd');
+    client.user.setActivity('só fazendo o meu trabalho...', { type: ActivityType.Watching });
+    
     // Fazer a verificação inicial
     await updateUserInfo();
     
@@ -234,8 +224,13 @@ function startBot() {
   });
 }
 
-// ===== SISTEMA KEEP-ALIVE PARA RENDER =====
-// Função para realizar ping no próprio serviço
+// Rota de ping para manter o serviço ativo
+app.get('/ping', (req, res) => {
+  res.send('Pong! Bot está ativo!');
+  console.log(`[${new Date().toISOString()}] Ping recebido`);
+});
+
+// Sistema Keep-Alive para Render
 function pingService() {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] PING INTERNO: Mantendo o serviço ativo`);
@@ -266,4 +261,3 @@ process.on('uncaughtException', function(err) {
   console.error(`[${new Date().toISOString()}] ERRO NÃO TRATADO: `, err);
   console.log('O bot continuará funcionando apesar do erro.');
 });
-
