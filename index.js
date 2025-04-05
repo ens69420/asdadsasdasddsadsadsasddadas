@@ -200,23 +200,9 @@ function startBot() {
   console.log(`[${new Date().toISOString()}] Iniciando o bot Discord...`);
 
   // Evento quando o bot estiver pronto
-  
-client.once('ready', async () => {
-  console.log(`[${new Date().toISOString()}] Bot iniciado como ${client.user.tag}`);
-  
-  // Adicione estas duas linhas:
-  client.user.setStatus('online'); // ou 'idle', 'dnd', 'invisible'
-  client.user.setActivity('monitorando status', { type: 'WATCHING' });
-  
-  // Resto do seu código permanece igual:
-  await updateUserInfo();
-  setInterval(updateUserInfo, AVATAR_CHECK_INTERVAL);
-});
-    
-    // Definir atividade do bot (opcional)
-    client.user.setActivity('só fazendo o meu papel...', { type: 'WATCHING' });
-    // Outros tipos: 'PLAYING', 'STREAMING', 'LISTENING', 'COMPETING'
-    
+  client.once('ready', async () => {
+    console.log(`[${new Date().toISOString()}] Bot iniciado como ${client.user.tag}`);
+
     // Fazer a verificação inicial
     await updateUserInfo();
     
@@ -270,3 +256,4 @@ process.on('uncaughtException', function(err) {
   console.error(`[${new Date().toISOString()}] ERRO NÃO TRATADO: `, err);
   console.log('O bot continuará funcionando apesar do erro.');
 });
+
