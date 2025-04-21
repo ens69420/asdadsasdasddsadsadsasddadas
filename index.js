@@ -201,7 +201,7 @@ function startBot() {
     console.log(`[${new Date().toISOString()}] Bot iniciado como ${client.user.tag}`);
     
     client.user.setStatus('dnd');
-    client.user.setActivity('só fazendo o meu trabalho...', { type: ActivityType.Watching });
+    client.user.setActivity('æns.xyz making biolinks for cheap', { type: ActivityType.Watching });
     
     // Fazer a verificação inicial
     await updateUserInfo();
