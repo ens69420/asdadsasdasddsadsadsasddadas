@@ -17,7 +17,7 @@ let userStatus = 'offline';
 let userAvatar = null;
 let userTag = null;
 let lastAvatarCheck = 0;
-const USER_ID = '874517110678765618'; // ID do usuário que você quer monitorar
+const USER_ID = '1148025168342548480'; // ID do usuário que você quer monitorar
 const AVATAR_CHECK_INTERVAL = 60 * 1000; // Verificar avatar a cada 1 minuto
 
 // Rota principal para o dashboard
